@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .glass-card {
+    @apply bg-slate-900/50 backdrop-blur-md border border-slate-800 rounded-xl shadow-xl transition-all hover:border-slate-700 hover:shadow-2xl hover:bg-slate-900/60;
+  }
+}

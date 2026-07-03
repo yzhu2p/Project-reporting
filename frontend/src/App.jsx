@@ -4,6 +4,7 @@ import { Search, AlertCircle, CheckCircle2, Truck, ShoppingCart, Clock } from 'l
 
 export default function App() {
   const [orderNumber, setOrderNumber] = useState('');
+  const [searchedOrderNumber, setSearchedOrderNumber] = useState('');
   const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -11,12 +12,14 @@ export default function App() {
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!orderNumber) return;
-    
+
     setLoading(true);
     setError(null);
+    setSearchedOrderNumber('');
     try {
       const res = await axios.get(`http://localhost:5000/api/backorders/${orderNumber}`);
       setComponents(res.data);
+      setSearchedOrderNumber(orderNumber);
     } catch (err) {
       setError("Failed to fetch backorder data. Ensure backend is running.");
     } finally {
@@ -28,9 +31,9 @@ export default function App() {
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <header className="mb-12 text-center">
         <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-4 tracking-tight">
-          Production Material Resolution
+          Project Component Backorder Report
         </h1>
-        <p className="text-slate-400 text-lg">Quickly resolve backordered components for your production orders.</p>
+        <p className="text-slate-400 text-lg">Quickly resolve backordered components</p>
       </header>
 
       <form onSubmit={handleSearch} className="max-w-xl mx-auto mb-12">
@@ -69,7 +72,7 @@ export default function App() {
               Backordered Components <span className="text-slate-500 text-lg font-normal ml-2">({components.length})</span>
             </h2>
           </div>
-          
+
           <div className="grid gap-6 md:grid-cols-1">
             {components.map((comp) => (
               <ComponentCard key={comp.item_id} component={comp} />
@@ -78,11 +81,11 @@ export default function App() {
         </div>
       )}
 
-      {components.length === 0 && !loading && !error && orderNumber && (
-         <div className="text-center text-slate-500 mt-12">
-            <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-emerald-500/50" />
-            <p className="text-xl">No backordered components found for {orderNumber}</p>
-         </div>
+      {components.length === 0 && !loading && !error && searchedOrderNumber && orderNumber === searchedOrderNumber && (
+        <div className="text-center text-slate-500 mt-12">
+          <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-emerald-500/50" />
+          <p className="text-xl">No backordered components found for {searchedOrderNumber}</p>
+        </div>
       )}
     </div>
   );
@@ -122,7 +125,7 @@ function ComponentCard({ component }) {
             {getRecIcon(component.recommendation)}
             {component.recommendation}
             {component.recommendation === 'Recommend Transfer' && component.recommendedTransferLocation && (
-               <span className="ml-1">from Loc {component.recommendedTransferLocation}</span>
+              <span className="ml-1">from Loc {component.recommendedTransferLocation}</span>
             )}
           </div>
         </div>

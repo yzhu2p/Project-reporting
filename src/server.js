@@ -22,6 +22,18 @@ const config = {
     }
 };
 
+// Create a global connection pool
+const poolPromise = new sql.ConnectionPool(config)
+  .connect()
+  .then(pool => {
+    console.log('Connected to MSSQL Database');
+    return pool;
+  })
+  .catch(err => {
+    console.error('Database Connection Failed! Bad Config: ', err);
+    process.exit(1);
+  });
+
 // Load queries from external files
 const queriesPath = path.join(__dirname, 'Queries');
 const findBackorderPOsQuery = fs.readFileSync(path.join(queriesPath, 'findBackorderPOs.sql'), 'utf-8');
@@ -40,7 +52,7 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
     const prodOrderNumber = req.params.prodOrderNumber;
     
     try {
-        let pool = await sql.connect(config);
+        const pool = await poolPromise;
         
         // 1. Fetch backordered components and earliest open PO
         const backordersResult = await pool.request()
@@ -50,7 +62,7 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
         const components = backordersResult.recordset;
         
         // If no components found, return empty
-        if (components.length === 0) {
+        if (!components || components.length === 0) {
             return res.json([]);
         }
         
@@ -67,8 +79,8 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
                     .query(findTransfersQuery)
             ]);
             
-            const inventory = inventoryResult.recordset;
-            const transfers = transferResult.recordset;
+            const inventory = inventoryResult.recordset || [];
+            const transfers = transferResult.recordset || [];
             
             // 3. Determine Recommended Action
             let recommendation = "";
@@ -107,8 +119,8 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
         res.json(enhancedComponents);
         
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "An error occurred fetching data." });
+        console.error("API Error: ", err);
+        res.status(500).json({ error: "An error occurred fetching data.", details: err.message });
     }
 });
 

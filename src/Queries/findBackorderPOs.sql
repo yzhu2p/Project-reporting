@@ -1,4 +1,3 @@
-USE P21_REPL;
 
 SELECT
     c.prod_order_number,

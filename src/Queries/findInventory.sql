@@ -1,4 +1,3 @@
-USE P21_REPL;
 
 SELECT
     i.item_id,

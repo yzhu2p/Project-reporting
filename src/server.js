@@ -39,7 +39,8 @@ const {
   findBackorderComponents, 
   findInventoryBulk, 
   findTransfersBulk, 
-  findPOsBulk 
+  findPOsBulk,
+  findProjectCosting
 } = require('./Queries/queries');
 
 // Location priority scoring:
@@ -175,6 +176,22 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
     } catch (err) {
         console.error("API Error: ", err);
         res.status(500).json({ error: "An error occurred fetching data.", details: err.message });
+    }
+});
+
+app.get('/api/costing/:prodOrderNumber', async (req, res) => {
+    const prodOrderNumber = req.params.prodOrderNumber;
+    
+    try {
+        const pool = await poolPromise;
+        const costingResult = await pool.request()
+            .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+            .query(findProjectCosting);
+            
+        res.json(costingResult.recordset || []);
+    } catch (err) {
+        console.error("Costing API Error: ", err);
+        res.status(500).json({ error: "An error occurred fetching costing data.", details: err.message });
     }
 });
 

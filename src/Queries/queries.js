@@ -115,9 +115,42 @@ AND l.qty_ordered <> l.qty_received
 ORDER BY l.date_due;
 `;
 
+const findProjectCosting = `
+SELECT
+    c.prod_order_number,
+
+    i.item_id,
+    i.item_desc,
+
+    c.qty_requested,
+    c.qty_allocated,
+    c.qty_on_pick_tickets,
+    c.disposition,
+
+    s.supplier_id,
+    s.cost,
+
+    (c.qty_requested * s.cost) AS extended_cost
+
+FROM prod_order_line_component c
+
+JOIN inv_mast i
+    ON c.inv_mast_uid = i.inv_mast_uid
+
+LEFT JOIN inventory_supplier s
+    ON c.inv_mast_uid = s.inv_mast_uid
+    AND c.supplier_id = s.supplier_id
+
+WHERE c.prod_order_number = @prodOrderNumber 
+    AND c.disposition != 'C'
+
+ORDER BY i.item_id;
+`;
+
 module.exports = {
   findBackorderComponents,
   findInventoryBulk,
   findTransfersBulk,
-  findPOsBulk
+  findPOsBulk,
+  findProjectCosting
 };

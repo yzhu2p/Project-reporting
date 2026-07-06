@@ -34,18 +34,27 @@ const poolPromise = new sql.ConnectionPool(config)
     process.exit(1);
   });
 
-// Load queries from external files
-const queriesPath = path.join(__dirname, 'Queries');
-const findBackorderPOsQuery = fs.readFileSync(path.join(queriesPath, 'findBackorderPOs.sql'), 'utf-8');
-const findInventoryQuery = fs.readFileSync(path.join(queriesPath, 'findInventory.sql'), 'utf-8');
-const findTransfersQuery = fs.readFileSync(path.join(queriesPath, 'findTransfersByItem.sql'), 'utf-8');
+// Import SQL queries from JS module
+const { 
+  findBackorderComponents, 
+  findInventoryBulk, 
+  findTransfersBulk, 
+  findPOsBulk 
+} = require('./Queries/queries');
 
-// Location priority list as requested (dummy locations)
-const LOCATION_PRIORITY = [100, 200, 300, 250];
-
+// Location priority scoring:
+// 1. 200s first (e.g., MIS 200, Barrie 250)
+// 2. Laval (100)
+// 3. NS (360)
+// 4. BC Surrey (400)
+// 5. Others
 function getPriorityScore(locationId) {
-    const index = LOCATION_PRIORITY.indexOf(Number(locationId));
-    return index === -1 ? 999 : index; // 999 for locations not in priority list
+    const loc = Number(locationId);
+    if (loc >= 200 && loc < 300) return 1;
+    if (loc === 100) return 2;
+    if (loc === 360) return 3;
+    if (loc === 400) return 4;
+    return 5;
 }
 
 app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
@@ -54,10 +63,10 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
     try {
         const pool = await poolPromise;
         
-        // 1. Fetch backordered components and earliest open PO
+        // 1. Get backordered components for this project
         const backordersResult = await pool.request()
             .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
-            .query(findBackorderPOsQuery);
+            .query(findBackorderComponents);
             
         const components = backordersResult.recordset;
         
@@ -66,61 +75,118 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
             return res.json([]);
         }
         
-        // 2. For each component, fetch inventory and transfers concurrently
-        const enhancedComponents = await Promise.all(components.map(async (comp) => {
+        // Project location is the source location of the production order
+        const toLocationId = components[0].source_location_id;
+        
+        // 2. Fetch inventory, transfers and POs in bulk (exactly 3 parallel queries)
+        const [inventoryResult, transferResult, poResult] = await Promise.all([
+            pool.request()
+                .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+                .query(findInventoryBulk),
+            pool.request()
+                .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+                .input('toLocationId', sql.Int, toLocationId)
+                .query(findTransfersBulk),
+            pool.request()
+                .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+                .query(findPOsBulk)
+        ]);
+        
+        const allInventory = inventoryResult.recordset || [];
+        const allTransfers = transferResult.recordset || [];
+        const allPOs = poResult.recordset || [];
+        
+        // Index queries in JS by item_id to associate them in O(N) instead of O(N^2)
+        const inventoryMap = {};
+        allInventory.forEach(inv => {
+            if (!inventoryMap[inv.item_id]) inventoryMap[inv.item_id] = [];
+            inventoryMap[inv.item_id].push(inv);
+        });
+        
+        const transferMap = {};
+        allTransfers.forEach(tx => {
+            if (!transferMap[tx.item_id]) transferMap[tx.item_id] = [];
+            transferMap[tx.item_id].push(tx);
+        });
+        
+        const poMap = {};
+        allPOs.forEach(po => {
+            if (!poMap[po.item_id]) poMap[po.item_id] = [];
+            poMap[po.item_id].push(po);
+        });
+        
+        // 3. Map items and calculate recommendations
+        const enhancedComponents = components.map(comp => {
             const itemId = comp.item_id;
+            const inventory = inventoryMap[itemId] || [];
+            const transfers = transferMap[itemId] || [];
+            const pos = poMap[itemId] || [];
             
-            const [inventoryResult, transferResult] = await Promise.all([
-                pool.request()
-                    .input('itemId', sql.VarChar, itemId)
-                    .query(findInventoryQuery),
-                pool.request()
-                    .input('itemId', sql.VarChar, itemId)
-                    .query(findTransfersQuery)
-            ]);
+            const shortage = comp.qty_requested - comp.qty_allocated;
             
-            const inventory = inventoryResult.recordset || [];
-            const transfers = transferResult.recordset || [];
+            // Check if transfers cover the shortage
+            const totalPendingTransfer = transfers.reduce((sum, tx) => sum + (tx.qty_to_transfer - tx.qty_received), 0);
             
-            // 3. Determine Recommended Action
             let recommendation = "";
             let recommendedTransferLocation = null;
             
-            if (transfers.length > 0) {
+            if (totalPendingTransfer >= shortage) {
                 recommendation = "Await Transfer";
-            } else if (inventory.length > 0) {
-                recommendation = "Recommend Transfer";
-                let bestLoc = inventory[0];
-                let bestScore = getPriorityScore(bestLoc.location_id);
+            } else {
+                // Filter out the project's own location from transfer consideration
+                const candidateInventory = inventory.filter(inv => Number(inv.location_id) !== Number(comp.source_location_id));
                 
-                for (let i = 1; i < inventory.length; i++) {
-                    let score = getPriorityScore(inventory[i].location_id);
-                    if (score < bestScore) {
-                        bestScore = score;
-                        bestLoc = inventory[i];
+                if (candidateInventory.length > 0) {
+                    recommendation = "Recommend Transfer";
+                    let bestLoc = candidateInventory[0];
+                    let bestScore = getPriorityScore(bestLoc.location_id);
+                    
+                    for (let i = 1; i < candidateInventory.length; i++) {
+                        let score = getPriorityScore(candidateInventory[i].location_id);
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestLoc = candidateInventory[i];
+                        }
+                    }
+                    recommendedTransferLocation = bestLoc.location_id;
+                } else {
+                    // Check if there is an active PO heading specifically to the project location
+                    const hasProjectLocationPO = pos.some(po => Number(po.location_id) === Number(comp.source_location_id));
+                    if (hasProjectLocationPO) {
+                        recommendation = "Await Purchase Order";
+                    } else {
+                        recommendation = "Suggest Purchase";
                     }
                 }
-                recommendedTransferLocation = bestLoc.location_id;
-            } else if (comp.po_no) {
-                recommendation = "Await Purchase Order";
-            } else {
-                recommendation = "Suggest Purchase";
             }
             
             return {
                 ...comp,
                 inventory,
                 transfers,
+                pos, // Array of all open POs
                 recommendation,
                 recommendedTransferLocation
             };
-        }));
+        });
         
         res.json(enhancedComponents);
         
     } catch (err) {
         console.error("API Error: ", err);
         res.status(500).json({ error: "An error occurred fetching data.", details: err.message });
+    }
+});
+
+// Serve static built frontend files (for docker or production bundle)
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Wildcard fallback to serve index.html for client-side routing
+app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+        res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+    } else {
+        res.status(404).json({ error: 'API route not found' });
     }
 });
 

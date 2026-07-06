@@ -124,12 +124,30 @@ function BackorderReport() {
     setExpandedRows({});
     try {
       const res = await axios.get(`http://localhost:5000/api/backorders/${num}`);
-      setComponents(res.data);
-      setSearchedOrderNumber(num);
+      if (res.data && res.data.status === 'closed') {
+        setError(res.data.message || "Production order is completed/closed");
+        setComponents([]);
+        setSearchedOrderNumber('');
+      } else {
+        setComponents(res.data);
+        setSearchedOrderNumber(num);
+      }
     } catch (err) {
-      setError("Failed to fetch backorder data. Ensure backend is running.");
       setComponents([]);
       setSearchedOrderNumber('');
+      if (err.response && err.response.data) {
+        const serverError = err.response.data.error;
+        const serverDetails = err.response.data.details;
+        if (err.response.status === 404) {
+          setError("Production order not found.");
+        } else if (serverError === 'SQL Error') {
+          setError(`SQL Error: ${serverDetails || serverError}`);
+        } else {
+          setError(`${serverError || 'Error'}: ${serverDetails || err.message}`);
+        }
+      } else {
+        setError("Failed to fetch backorder data. Ensure backend is running.");
+      }
     } finally {
       setLoading(false);
     }
@@ -445,7 +463,10 @@ function BackorderReport() {
                         <tr 
                           className={`hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors ${isExpanded ? 'bg-slate-100/50 dark:bg-slate-800/20' : ''}`}
                         >
-                          <td className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 whitespace-nowrap">
+                          <td 
+                            className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 max-w-[180px] truncate whitespace-nowrap"
+                            title={comp.item_id}
+                          >
                             {comp.item_id}
                           </td>
                           <td className="px-3 py-2.5 text-center text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
@@ -646,12 +667,30 @@ function ProjectCosting() {
     setError(null);
     try {
       const res = await axios.get(`http://localhost:5000/api/costing/${num}`);
-      setItems(res.data);
-      setSearchedOrderNumber(num);
+      if (res.data && res.data.status === 'closed') {
+        setError(res.data.message || "Production order is completed/closed");
+        setItems([]);
+        setSearchedOrderNumber('');
+      } else {
+        setItems(res.data);
+        setSearchedOrderNumber(num);
+      }
     } catch (err) {
-      setError("Failed to fetch costing data. Ensure backend is running.");
       setItems([]);
       setSearchedOrderNumber('');
+      if (err.response && err.response.data) {
+        const serverError = err.response.data.error;
+        const serverDetails = err.response.data.details;
+        if (err.response.status === 404) {
+          setError("Production order not found.");
+        } else if (serverError === 'SQL Error') {
+          setError(`SQL Error: ${serverDetails || serverError}`);
+        } else {
+          setError(`${serverError || 'Error'}: ${serverDetails || err.message}`);
+        }
+      } else {
+        setError("Failed to fetch costing data. Ensure backend is running.");
+      }
     } finally {
       setLoading(false);
     }
@@ -872,10 +911,16 @@ function ProjectCosting() {
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                   {items.map((item) => (
                     <tr key={item.item_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors">
-                      <td className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 whitespace-nowrap">
+                      <td 
+                        className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 max-w-[180px] truncate whitespace-nowrap"
+                        title={item.item_id}
+                      >
                         {item.item_id}
                       </td>
-                      <td className="px-4 py-2.5 truncate max-w-xs font-medium" title={item.item_desc}>
+                      <td 
+                        className="px-4 py-2.5 max-w-[220px] truncate font-medium whitespace-nowrap"
+                        title={item.item_desc || 'No description'}
+                      >
                         {item.item_desc || 'No description'}
                       </td>
                       <td className="px-3 py-2.5 text-center font-medium">

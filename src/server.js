@@ -14,8 +14,9 @@ app.use(express.json());
 const config = {
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
-    server: "Portal13.promtl.local",
-    database: "P21_REPL",
+    server: process.env.DB_SERVER || "Portal13.promtl.local",
+    database: process.env.DB_NAME || "P21_REPL",
+    port: Number(process.env.DB_PORT) || 1433,
     options: {
         encrypt: false,
         trustServerCertificate: true,
@@ -40,7 +41,8 @@ const {
   findInventoryBulk, 
   findTransfersBulk, 
   findPOsBulk,
-  findProjectCosting
+  findProjectCosting,
+  findProductionOrderStatus
 } = require('./Queries/queries');
 
 // Location priority scoring:
@@ -63,6 +65,20 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
     
     try {
         const pool = await poolPromise;
+        
+        // Check if production order exists and retrieve its complete status
+        const statusResult = await pool.request()
+            .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+            .query(findProductionOrderStatus);
+            
+        if (!statusResult.recordset || statusResult.recordset.length === 0) {
+            return res.status(404).json({ error: "Production order not found" });
+        }
+        
+        const isComplete = (statusResult.recordset[0].complete || '').trim();
+        if (isComplete === 'Y') {
+            return res.json({ status: "closed", message: "Production order is completed/closed", data: [] });
+        }
         
         // 1. Get backordered components for this project
         const backordersResult = await pool.request()
@@ -175,7 +191,11 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
         
     } catch (err) {
         console.error("API Error: ", err);
-        res.status(500).json({ error: "An error occurred fetching data.", details: err.message });
+        if (err.name === 'RequestError' || err.code === 'EREQUEST') {
+            res.status(400).json({ error: "SQL Error", details: err.message });
+        } else {
+            res.status(500).json({ error: "Database Connection Error", details: err.message });
+        }
     }
 });
 
@@ -184,6 +204,21 @@ app.get('/api/costing/:prodOrderNumber', async (req, res) => {
     
     try {
         const pool = await poolPromise;
+        
+        // Check if production order exists and retrieve its complete status
+        const statusResult = await pool.request()
+            .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+            .query(findProductionOrderStatus);
+            
+        if (!statusResult.recordset || statusResult.recordset.length === 0) {
+            return res.status(404).json({ error: "Production order not found" });
+        }
+        
+        const isComplete = (statusResult.recordset[0].complete || '').trim();
+        if (isComplete === 'Y') {
+            return res.json({ status: "closed", message: "Production order is completed/closed", data: [] });
+        }
+        
         const costingResult = await pool.request()
             .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
             .query(findProjectCosting);
@@ -191,7 +226,11 @@ app.get('/api/costing/:prodOrderNumber', async (req, res) => {
         res.json(costingResult.recordset || []);
     } catch (err) {
         console.error("Costing API Error: ", err);
-        res.status(500).json({ error: "An error occurred fetching costing data.", details: err.message });
+        if (err.name === 'RequestError' || err.code === 'EREQUEST') {
+            res.status(400).json({ error: "SQL Error", details: err.message });
+        } else {
+            res.status(500).json({ error: "Database Connection Error", details: err.message });
+        }
     }
 });
 

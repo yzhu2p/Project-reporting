@@ -147,10 +147,17 @@ WHERE c.prod_order_number = @prodOrderNumber
 ORDER BY i.item_id;
 `;
 
+const findProductionOrderStatus = `
+SELECT complete 
+FROM prod_order_hdr 
+WHERE prod_order_number = @prodOrderNumber;
+`;
+
 module.exports = {
   findBackorderComponents,
   findInventoryBulk,
   findTransfersBulk,
   findPOsBulk,
-  findProjectCosting
+  findProjectCosting,
+  findProductionOrderStatus
 };

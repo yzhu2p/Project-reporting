@@ -153,13 +153,6 @@ export default function ProjectCosting() {
 
   // Metrics calculations
   const totalCost = items.reduce((sum, item) => sum + (item.extended_cost || 0), 0);
-  const totalRequested = items.reduce((sum, item) => sum + (item.qty_requested || 0), 0);
-  const totalSecured = items.reduce((sum, item) => {
-    const d = (item.disposition || '').trim();
-    if (d === 'B' || d === 'S') return sum;
-    return sum + (item.qty_allocated || 0) + (item.qty_on_pick_tickets || 0);
-  }, 0);
-  const allocationPercent = totalRequested > 0 ? ((totalSecured / totalRequested) * 100).toFixed(1) + '%' : '0.0%';
 
   return (
     <div className="w-full">
@@ -204,7 +197,7 @@ export default function ProjectCosting() {
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">Estimated Item Cost</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">Actual Item Cost</span>
                 <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">{formatCurrency(totalCost)}</span>
               </div>
             </div>
@@ -220,14 +213,15 @@ export default function ProjectCosting() {
               </div>
             </div>
 
-            {/* Allocation Ratio */}
+            {/* Percentage of SO Value Placeholder */}
             <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center space-x-4">
               <div className="p-3.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
                 <CheckSquare className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">Stock Allocation Rate</span>
-                <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">{allocationPercent}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">% of Total SO Value</span>
+                <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">-</span>
+                <span className="text-[10px] text-slate-400 block font-medium mt-0.5">Query pending</span>
               </div>
             </div>
 

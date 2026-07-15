@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import BackorderReport from './components/BackorderReport';
 import ProjectCosting from './components/ProjectCosting';
+import CustomerPOs from './components/CustomerPOs';
 
 export default function App() {
   const [theme, setTheme] = useState(() => {
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/project/backorders/:orderNumberParam" element={<BackorderReport />} />
         <Route path="/project/costing" element={<ProjectCosting />} />
         <Route path="/project/costing/:orderNumberParam" element={<ProjectCosting />} />
+        <Route path="/project/customer-pos" element={<CustomerPOs />} />
         <Route path="*" element={<Navigate to="/project/backorders" replace />} />
       </Routes>
     </Layout>

@@ -32,7 +32,7 @@ export default function BackorderReport() {
     setError(null);
     setExpandedRows({});
     try {
-      const res = await axios.get(`http://localhost:5000/api/backorders/${num}`);
+      const res = await axios.get(`/project-availability/api/backorders/${num}`);
       if (res.data && res.data.status === 'closed') {
         setError(res.data.message || "Production order is completed/closed");
         setComponents([]);
@@ -110,8 +110,7 @@ export default function BackorderReport() {
       const bc = getLocAvail(comp.inventory, 400);
       const { total: otherTotal } = getOthersAvail(comp.inventory);
       
-      const projectPOs = comp.pos.filter(po => Number(po.location_id) === Number(comp.source_location_id));
-      const hasProjectPO = projectPOs.length > 0 ? 'Yes' : '-';
+      const nearestPO = getNearestPODate(comp.pos, comp.source_location_id);
 
       return [
         comp.item_id,
@@ -123,7 +122,7 @@ export default function BackorderReport() {
         ns,
         bc,
         otherTotal,
-        hasProjectPO,
+        nearestPO,
         comp.recommendation
       ];
     });
@@ -170,6 +169,22 @@ export default function BackorderReport() {
     const total = others.reduce((acc, curr) => acc + curr.qty_available, 0);
     const details = others.map(o => `Loc ${o.location_id}: ${o.qty_available}`).join(', ');
     return { total, details };
+  };
+
+  // Helper to get nearest PO date for source location
+  const getNearestPODate = (pos, sourceLocationId) => {
+    if (!pos) return '-';
+    const projectPOs = pos.filter(po => Number(po.location_id) === Number(sourceLocationId));
+    if (projectPOs.length === 0) return '-';
+    const firstPO = projectPOs[0];
+    if (!firstPO.date_due) return 'Yes';
+    try {
+      const d = new Date(firstPO.date_due);
+      if (isNaN(d.getTime())) return 'Yes';
+      return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    } catch (e) {
+      return 'Yes';
+    }
   };
 
   const requestSort = (key) => {
@@ -227,10 +242,13 @@ export default function BackorderReport() {
             bVal = b.transfers ? b.transfers.length : 0;
             break;
           case 'po':
-            const aPOs = a.pos ? a.pos.filter(po => Number(po.location_id) === Number(a.source_location_id)) : [];
-            const bPOs = b.pos ? b.pos.filter(po => Number(po.location_id) === Number(b.source_location_id)) : [];
-            aVal = aPOs.length > 0 ? 1 : 0;
-            bVal = bPOs.length > 0 ? 1 : 0;
+            const aProjectPOs = a.pos ? a.pos.filter(po => Number(po.location_id) === Number(a.source_location_id)) : [];
+            const bProjectPOs = b.pos ? b.pos.filter(po => Number(po.location_id) === Number(b.source_location_id)) : [];
+            
+            const noPOValue = sortConfig.direction === 'asc' ? Infinity : -Infinity;
+            
+            aVal = aProjectPOs.length > 0 && aProjectPOs[0].date_due ? new Date(aProjectPOs[0].date_due).getTime() : noPOValue;
+            bVal = bProjectPOs.length > 0 && bProjectPOs[0].date_due ? new Date(bProjectPOs[0].date_due).getTime() : noPOValue;
             break;
           default:
             return 0;
@@ -417,8 +435,8 @@ export default function BackorderReport() {
           )}
 
           {/* Main Table Section */}
-          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md dark:shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md dark:shadow-xl min-w-full w-max">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-550/5 dark:bg-slate-900/30">
               <div className="flex items-center space-x-3">
                 <h2 className="text-lg font-bold text-proax-navy dark:text-slate-200">
                   Backordered Components List
@@ -448,22 +466,22 @@ export default function BackorderReport() {
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-[11px] text-slate-600 dark:text-slate-400 uppercase tracking-wider shadow-sm">
                   <tr>
-                    {renderSortHeader("Item", "item_id", "left", "px-4")}
-                    {renderSortHeader("Req / Alloc", "qty_requested", "center", "px-3")}
-                    {renderSortHeader("MIS (200)", "mis", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("Barrie (250)", "barrie", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("Laval (100)", "laval", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("NS (360)", "ns", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("BC (400)", "bc", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("Other", "other", "center", "px-2.5 bg-proax-primary/5 dark:bg-blue-500/5")}
-                    {renderSortHeader("Active Transfer", "transfers", "center", "px-3")}
-                    {renderSortHeader(`PO to ${projectLocationId || '*00'}`, "po", "center", "px-3")}
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">Action</th>
-                    <th scope="col" className="px-4 py-3 text-center font-semibold">Details</th>
+                    {renderSortHeader("Item", "item_id", "left", "px-2 py-2")}
+                    {renderSortHeader(<div className="text-center leading-tight">Req /<br/>Alloc</div>, "qty_requested", "center", "px-1.5 py-2")}
+                    {renderSortHeader(<div className="text-center leading-tight">MIS<br/>200</div>, "mis", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader(<div className="text-center leading-tight">Barrie<br/>250</div>, "barrie", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader(<div className="text-center leading-tight">Laval<br/>100</div>, "laval", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader(<div className="text-center leading-tight">NS<br/>360</div>, "ns", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader(<div className="text-center leading-tight">BC<br/>400</div>, "bc", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader("Other", "other", "center", "px-1 py-2 bg-proax-primary/5 dark:bg-blue-500/5")}
+                    {renderSortHeader(<div className="text-center leading-tight">Active<br/>Trans</div>, "transfers", "center", "px-1.5 py-2")}
+                    {renderSortHeader(<div className="text-center leading-tight">PO to<br/>{projectLocationId || '*00'}</div>, "po", "center", "px-1.5 py-2")}
+                    <th scope="col" className="px-1.5 py-2 text-center font-semibold">Action</th>
+                    <th scope="col" className="px-2 py-2 text-center font-semibold">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {sortedComponents.map((comp) => {
+                  {sortedComponents.map((comp, idx) => {
                     const mis = getLocAvail(comp.inventory, 200);
                     const barrie = getLocAvail(comp.inventory, 250);
                     const laval = getLocAvail(comp.inventory, 100);
@@ -479,22 +497,24 @@ export default function BackorderReport() {
                     const hasAnyPO = comp.pos.length > 0;
 
                     return (
-                      <React.Fragment key={comp.item_id}>
+                      <React.Fragment key={`${comp.item_id}_${idx}`}>
                         <tr 
                           className={`hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors ${isExpanded ? 'bg-slate-100/50 dark:bg-slate-800/20' : ''}`}
                         >
-                          <td 
-                            className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 max-w-[180px] truncate whitespace-nowrap"
-                            title={comp.item_id}
-                          >
-                            {comp.item_id}
+                          <td className="px-2 py-1.5 font-bold text-proax-navy dark:text-slate-100">
+                            <div 
+                              className="max-w-[100px] sm:max-w-[140px] md:max-w-[180px] lg:max-w-none truncate"
+                              title={comp.item_id}
+                            >
+                              {comp.item_id}
+                            </div>
                           </td>
-                          <td className="px-3 py-2.5 text-center text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
+                          <td className="px-1.5 py-1.5 text-center text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap">
                             {comp.qty_requested} / {comp.qty_allocated}
                           </td>
                           
                           {/* MIS 200 */}
-                          <td className={`px-2.5 py-2.5 text-center font-medium ${comp.recommendedTransferLocation === '200' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
+                          <td className={`px-1 py-1.5 text-center font-medium ${comp.recommendedTransferLocation === '200' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
                             {mis > 0 ? (
                               <span className={`px-1 rounded text-xs ${comp.recommendedTransferLocation === '200' ? 'bg-proax-primary/20 dark:bg-blue-500/20 font-bold text-proax-navy dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400'}`}>
                                 {mis}
@@ -503,7 +523,7 @@ export default function BackorderReport() {
                           </td>
                           
                           {/* Barrie 250 */}
-                          <td className={`px-2.5 py-2.5 text-center font-medium ${comp.recommendedTransferLocation === '250' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
+                          <td className={`px-1 py-1.5 text-center font-medium ${comp.recommendedTransferLocation === '250' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
                             {barrie > 0 ? (
                               <span className={`px-1 rounded text-xs ${comp.recommendedTransferLocation === '250' ? 'bg-proax-primary/20 dark:bg-blue-500/20 font-bold text-proax-navy dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400'}`}>
                                 {barrie}
@@ -512,7 +532,7 @@ export default function BackorderReport() {
                           </td>
                           
                           {/* Laval 100 */}
-                          <td className={`px-2.5 py-2.5 text-center font-medium ${comp.recommendedTransferLocation === '100' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
+                          <td className={`px-1 py-1.5 text-center font-medium ${comp.recommendedTransferLocation === '100' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
                             {laval > 0 ? (
                               <span className={`px-1 rounded text-xs ${comp.recommendedTransferLocation === '100' ? 'bg-proax-primary/20 dark:bg-blue-500/20 font-bold text-proax-navy dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400'}`}>
                                 {laval}
@@ -521,7 +541,7 @@ export default function BackorderReport() {
                           </td>
                           
                           {/* NS 360 */}
-                          <td className={`px-2.5 py-2.5 text-center font-medium ${comp.recommendedTransferLocation === '360' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
+                          <td className={`px-1 py-1.5 text-center font-medium ${comp.recommendedTransferLocation === '360' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
                             {ns > 0 ? (
                               <span className={`px-1 rounded text-xs ${comp.recommendedTransferLocation === '360' ? 'bg-proax-primary/20 dark:bg-blue-500/20 font-bold text-proax-navy dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400'}`}>
                                 {ns}
@@ -530,7 +550,7 @@ export default function BackorderReport() {
                           </td>
                           
                           {/* BC 400 */}
-                          <td className={`px-2.5 py-2.5 text-center font-medium ${comp.recommendedTransferLocation === '400' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
+                          <td className={`px-1 py-1.5 text-center font-medium ${comp.recommendedTransferLocation === '400' ? 'bg-proax-primary/10 dark:bg-blue-500/10 text-proax-navy dark:text-blue-400 border-x border-slate-200/50 dark:border-slate-800/50' : 'text-slate-400'}`}>
                             {bc > 0 ? (
                               <span className={`px-1 rounded text-xs ${comp.recommendedTransferLocation === '400' ? 'bg-proax-primary/20 dark:bg-blue-500/20 font-bold text-proax-navy dark:text-blue-300' : 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400'}`}>
                                 {bc}
@@ -539,7 +559,7 @@ export default function BackorderReport() {
                           </td>
                           
                           {/* Other */}
-                          <td className="px-2.5 py-2.5 text-center text-slate-500 font-medium" title={otherDetails || 'No other locations'}>
+                          <td className="px-1 py-1.5 text-center text-slate-500 font-medium" title={otherDetails || 'No other locations'}>
                             {otherTotal > 0 ? (
                               <span className="text-slate-600 dark:text-slate-400 font-semibold">
                                 {otherTotal}
@@ -548,20 +568,18 @@ export default function BackorderReport() {
                           </td>
 
                           {/* Active Transfers count */}
-                          <td className="px-3 py-2.5 text-center font-semibold text-proax-primary dark:text-blue-450">
+                          <td className="px-1.5 py-1.5 text-center font-semibold text-proax-primary dark:text-blue-450">
                             {hasTransfers ? comp.transfers.length : '-'}
                           </td>
 
-                          {/* Active PO target location (displays Yes / -) */}
-                          <td className={`px-3 py-2.5 text-center font-bold ${hasProjectPO ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
-                            {hasProjectPO ? 'Yes' : '-'}
+                          {/* Active PO target location (displays nearest date / -) */}
+                          <td className={`px-1.5 py-1.5 text-center text-xs font-semibold ${hasProjectPO ? 'text-slate-700 dark:text-slate-350' : 'text-slate-400 dark:text-slate-500'}`}>
+                            {getNearestPODate(comp.pos, comp.source_location_id)}
                           </td>
-
-                          <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <td className="px-1.5 py-1.5 text-center whitespace-nowrap">
                             {getRecBadge(comp.recommendation)}
                           </td>
-
-                          <td className="px-4 py-2.5 text-center">
+                          <td className="px-2 py-1.5 text-center">
                             {(hasTransfers || hasAnyPO) ? (
                               <button
                                 onClick={() => toggleRow(comp.item_id)}

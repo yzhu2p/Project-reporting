@@ -26,7 +26,7 @@ export default function ProjectCosting() {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`http://localhost:5000/api/costing/${num}`);
+      const res = await axios.get(`/project-availability/api/costing/${num}`);
       if (res.data && res.data.status === 'closed') {
         setError(res.data.message || "Production order is completed/closed");
         setItems([]);
@@ -228,8 +228,8 @@ export default function ProjectCosting() {
           </div>
 
           {/* Costing Table */}
-          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md dark:shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/30">
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md dark:shadow-xl min-w-full w-max">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-550/5 dark:bg-slate-900/30">
               <div className="flex items-center space-x-3">
                 <h2 className="text-lg font-bold text-proax-navy dark:text-slate-200">
                   Project Line Cost Breakdown
@@ -259,51 +259,53 @@ export default function ProjectCosting() {
               <table className="w-full text-xs text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-10 text-[11px] text-slate-600 dark:text-slate-400 uppercase tracking-wider shadow-sm">
                   <tr>
-                    <th scope="col" className="px-4 py-3 font-semibold">Item</th>
-                    <th scope="col" className="px-4 py-3 font-semibold">Description</th>
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">Requested</th>
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">Allocated</th>
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">On Pick Tickets</th>
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">Disp</th>
-                    <th scope="col" className="px-3 py-3 text-center font-semibold">Supplier ID</th>
-                    <th scope="col" className="px-4 py-3 text-right font-semibold">Unit Cost</th>
-                    <th scope="col" className="px-4 py-3 text-right font-semibold">Extended Cost</th>
+                    <th scope="col" className="px-2 py-2 font-semibold">Item</th>
+                    <th scope="col" className="px-2 py-2 font-semibold">Description</th>
+                    <th scope="col" className="px-1.5 py-2 text-center font-semibold">Requested</th>
+                    <th scope="col" className="px-1.5 py-2 text-center font-semibold">Allocated</th>
+                    <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">On Pick<br/>Tickets</div></th>
+                    <th scope="col" className="px-1 py-2 text-center font-semibold">Disp</th>
+                    <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">Supplier<br/>ID</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Unit<br/>Cost</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Extended<br/>Cost</div></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                  {items.map((item) => (
-                    <tr key={item.item_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors">
-                      <td 
-                        className="px-4 py-2.5 font-bold text-proax-navy dark:text-slate-100 max-w-[180px] truncate whitespace-nowrap"
-                        title={item.item_id}
-                      >
-                        {item.item_id}
+                  {items.map((item, idx) => (
+                    <tr key={`${item.item_id}_${idx}`} className="hover:bg-slate-50 dark:hover:bg-slate-800/10 transition-colors">
+                      <td className="px-2 py-1.5 font-bold text-proax-navy dark:text-slate-100">
+                        <div 
+                          className="max-w-[100px] sm:max-w-[140px] md:max-w-[180px] lg:max-w-none truncate"
+                          title={item.item_id}
+                        >
+                          {item.item_id}
+                        </div>
                       </td>
                       <td 
-                        className="px-4 py-2.5 max-w-[220px] truncate font-medium whitespace-nowrap"
+                        className="px-2 py-1.5 font-medium whitespace-nowrap"
                         title={item.item_desc || 'No description'}
                       >
                         {item.item_desc || 'No description'}
                       </td>
-                      <td className="px-3 py-2.5 text-center font-medium">
+                      <td className="px-1.5 py-1.5 text-center font-medium">
                         {item.qty_requested}
                       </td>
-                      <td className="px-3 py-2.5 text-center font-medium">
+                      <td className="px-1.5 py-1.5 text-center font-medium">
                         {item.qty_allocated}
                       </td>
-                      <td className="px-3 py-2.5 text-center font-medium">
+                      <td className="px-1.5 py-1.5 text-center font-medium">
                         {item.qty_on_pick_tickets}
                       </td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-1 py-1.5 text-center">
                         {getDispBadge(item.disposition)}
                       </td>
-                      <td className="px-3 py-2.5 text-center text-slate-550 font-medium">
+                      <td className="px-1.5 py-1.5 text-center text-slate-550 font-medium">
                         {item.supplier_id || '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-semibold">
+                      <td className="px-2 py-1.5 text-right font-semibold">
                         {formatCurrency(item.cost)}
                       </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-proax-navy dark:text-slate-150">
+                      <td className="px-2 py-1.5 text-right font-bold text-proax-navy dark:text-slate-150">
                         {formatCurrency(item.extended_cost)}
                       </td>
                     </tr>

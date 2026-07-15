@@ -11,7 +11,9 @@ export default function Layout({ children, theme, setTheme }) {
   const currentParam = pathParts[3] || '';
 
   const handleTabClick = (tab) => {
-    if (currentParam) {
+    if (tab === 'customer-pos') {
+      navigate(`/project/${tab}`);
+    } else if (currentParam) {
       navigate(`/project/${tab}/${currentParam}`);
     } else {
       navigate(`/project/${tab}`);
@@ -19,19 +21,19 @@ export default function Layout({ children, theme, setTheme }) {
   };
 
   const getHeaderTitle = () => {
-    return activeReport === 'costing' 
-      ? 'Project Costing Report' 
-      : 'Project Component Backorder Report';
+    if (activeReport === 'costing') return 'Project Costing Report';
+    if (activeReport === 'customer-pos') return 'Active Customer POs';
+    return 'Project Component Backorder Report';
   };
 
   const getHeaderSubtitle = () => {
-    return activeReport === 'costing'
-      ? 'Detailed project line-item cost estimations'
-      : 'Track and resolve components requiring attention';
+    if (activeReport === 'costing') return 'Detailed project line-item cost estimations';
+    if (activeReport === 'customer-pos') return 'Biweekly tracking of customer purchases and sales';
+    return 'Track and resolve components requiring attention';
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl relative text-proax-navy dark:text-slate-100 font-sans min-h-screen">
+    <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 max-w-[1600px] relative text-proax-navy dark:text-slate-100 font-sans min-h-screen">
       
       {/* Light / Dark Mode toggle button floating in top-right */}
       <div className="absolute top-4 right-4 z-50">
@@ -75,6 +77,16 @@ export default function Layout({ children, theme, setTheme }) {
             }`}
           >
             Project Costing
+          </button>
+          <button
+            onClick={() => handleTabClick('customer-pos')}
+            className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 focus:outline-none ${
+              activeReport === 'customer-pos'
+                ? 'bg-white dark:bg-slate-900 text-proax-primary dark:text-blue-400 shadow-sm'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            Customer POs
           </button>
         </div>
       </div>

@@ -60,7 +60,7 @@ function getPriorityScore(locationId) {
     return 5;
 }
 
-app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
+app.get('/project-availability/api/backorders/:prodOrderNumber', async (req, res) => {
     const prodOrderNumber = req.params.prodOrderNumber;
     
     try {
@@ -199,7 +199,7 @@ app.get('/api/backorders/:prodOrderNumber', async (req, res) => {
     }
 });
 
-app.get('/api/costing/:prodOrderNumber', async (req, res) => {
+app.get('/project-availability/api/costing/:prodOrderNumber', async (req, res) => {
     const prodOrderNumber = req.params.prodOrderNumber;
     
     try {
@@ -235,11 +235,11 @@ app.get('/api/costing/:prodOrderNumber', async (req, res) => {
 });
 
 // Serve static built frontend files (for docker or production bundle)
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+app.use('/project-availability', express.static(path.join(__dirname, '../frontend/dist')));
 
 // Wildcard fallback to serve index.html for client-side routing
 app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
+    if (!req.path.startsWith('/project-availability/api')) {
         res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
     } else {
         res.status(404).json({ error: 'API route not found' });

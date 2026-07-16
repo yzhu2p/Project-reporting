@@ -378,6 +378,72 @@ JOIN oe_line oe1
 WHERE pol.prod_order_number = @prodOrderNumber;
 `;
 
+const findCustomerPOs = `
+WITH items AS (
+    SELECT inv_mast_uid, item_id
+    FROM inv_mast
+    WHERE item_id IN (
+        'HPN12964099', 
+        'HPN12964068', 
+        'HPN12809364', 
+        'HPN13046137', 
+        'HPN13046074', 
+        'HPN14068686'
+    )
+)
+SELECT 
+    i.item_id,
+    oeh.order_no AS sales_order_no,
+    oeh.po_no AS customer_po_no,
+    oeh.customer_id,
+    c.customer_name,
+    oeh.order_date,
+    oel.qty_ordered,
+    oel.qty_invoiced,
+    oel.qty_canceled,
+    oel.unit_price
+FROM items i
+JOIN oe_line oel 
+    ON i.inv_mast_uid = oel.inv_mast_uid
+JOIN oe_hdr oeh 
+    ON oel.order_no = oeh.order_no
+LEFT JOIN customer c
+    ON oeh.customer_id = c.customer_id
+WHERE oeh.completed = 'N'
+  AND oeh.cancel_flag = 'N'
+  AND oel.complete = 'N'
+  AND oel.cancel_flag = 'N'
+ORDER BY i.item_id, oeh.order_date;
+`;
+
+const findCustomerPOsYTD = `
+WITH items AS (
+    SELECT inv_mast_uid, item_id
+    FROM inv_mast
+    WHERE item_id IN (
+        'HPN12964099', 
+        'HPN12964068', 
+        'HPN12809364', 
+        'HPN13046137', 
+        'HPN13046074', 
+        'HPN14068686'
+    )
+)
+SELECT 
+    i.item_id,
+    SUM(oel.qty_ordered) AS ytd_qty_sold,
+    COUNT(DISTINCT oeh.po_no) AS ytd_po_count
+FROM items i
+JOIN oe_line oel 
+    ON i.inv_mast_uid = oel.inv_mast_uid
+JOIN oe_hdr oeh 
+    ON oel.order_no = oeh.order_no
+WHERE oeh.order_date >= DATEFROMPARTS(YEAR(GETDATE()), 1, 1)
+  AND oeh.cancel_flag = 'N'
+  AND oel.cancel_flag = 'N'
+GROUP BY i.item_id;
+`;
+
 module.exports = {
   findBackorderComponents,
   findInventoryBulk,
@@ -385,5 +451,7 @@ module.exports = {
   findPOsBulk,
   findProjectCosting,
   findProductionOrderStatus,
-  findSalesOrderLine1Price
+  findSalesOrderLine1Price,
+  findCustomerPOs,
+  findCustomerPOsYTD
 };

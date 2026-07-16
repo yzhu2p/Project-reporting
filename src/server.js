@@ -43,7 +43,9 @@ const {
   findPOsBulk,
   findProjectCosting,
   findProductionOrderStatus,
-  findSalesOrderLine1Price
+  findSalesOrderLine1Price,
+  findCustomerPOs,
+  findCustomerPOsYTD
 } = require('./Queries/queries');
 
 // Location priority scoring:
@@ -243,6 +245,84 @@ app.get('/project-availability/api/costing/:prodOrderNumber', async (req, res) =
         res.json(itemsWithSO);
     } catch (err) {
         console.error("Costing API Error: ", err);
+        if (err.name === 'RequestError' || err.code === 'EREQUEST') {
+            res.status(400).json({ error: "SQL Error", details: err.message });
+        } else {
+            res.status(500).json({ error: "Database Connection Error", details: err.message });
+        }
+    }
+});
+
+app.get('/project-availability/api/customer-pos', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        
+        const [activeResult, ytdResult] = await Promise.all([
+            pool.request().query(findCustomerPOs),
+            pool.request().query(findCustomerPOsYTD)
+        ]);
+        
+        const activePOs = activeResult.recordset || [];
+        const ytdSales = ytdResult.recordset || [];
+        
+        // Group active POs by item_id
+        const activeMap = {};
+        activePOs.forEach(row => {
+            if (!activeMap[row.item_id]) {
+                activeMap[row.item_id] = [];
+            }
+            activeMap[row.item_id].push({
+                sales_order_no: row.sales_order_no,
+                customer_po_no: row.customer_po_no,
+                customer_id: row.customer_id,
+                customer_name: row.customer_name || 'N/A',
+                order_date: row.order_date,
+                qty_ordered: row.qty_ordered,
+                qty_invoiced: row.qty_invoiced,
+                qty_canceled: row.qty_canceled,
+                unit_price: row.unit_price,
+                qty_remaining: row.qty_ordered - row.qty_invoiced - row.qty_canceled
+            });
+        });
+        
+        // Create ytd map
+        const ytdMap = {};
+        ytdSales.forEach(row => {
+            ytdMap[row.item_id] = {
+                ytdQtySold: row.ytd_qty_sold || 0,
+                ytdPOCount: row.ytd_po_count || 0
+            };
+        });
+        
+        const TRACKED_ITEMS = [
+          { partNo: 'HPN12964099', desc: 'XT4 (Revision 3)' },
+          { partNo: 'HPN12964068', desc: 'XT5 (Revision 3)' },
+          { partNo: 'HPN12809364', desc: 'XT6 (Revision 3)' },
+          { partNo: 'HPN13046137', desc: 'XT5 (4 pole)' },
+          { partNo: 'HPN13046074', desc: 'XT4 (4 pole)' },
+          { partNo: 'HPN14068686', desc: 'XT2 (Revision 2)' },
+        ];
+        
+        const data = TRACKED_ITEMS.map(item => {
+            const orders = activeMap[item.partNo] || [];
+            const ytdInfo = ytdMap[item.partNo] || { ytdQtySold: 0, ytdPOCount: 0 };
+            return {
+                partNo: item.partNo,
+                desc: item.desc,
+                activeOrdersCount: orders.length,
+                ytdQtySold: ytdInfo.ytdQtySold,
+                ytdPOCount: ytdInfo.ytdPOCount,
+                orders: orders
+            };
+        });
+        
+        res.json({
+            status: "success",
+            lastCheckDate: new Date(),
+            data: data
+        });
+    } catch (err) {
+        console.error("Customer POs API Error: ", err);
         if (err.name === 'RequestError' || err.code === 'EREQUEST') {
             res.status(400).json({ error: "SQL Error", details: err.message });
         } else {

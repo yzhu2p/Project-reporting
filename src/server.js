@@ -42,7 +42,8 @@ const {
   findTransfersBulk, 
   findPOsBulk,
   findProjectCosting,
-  findProductionOrderStatus
+  findProductionOrderStatus,
+  findSalesOrderLine1Price
 } = require('./Queries/queries');
 
 // Location priority scoring:
@@ -199,6 +200,8 @@ app.get('/project-availability/api/backorders/:prodOrderNumber', async (req, res
     }
 });
 
+
+
 app.get('/project-availability/api/costing/:prodOrderNumber', async (req, res) => {
     const prodOrderNumber = req.params.prodOrderNumber;
     
@@ -223,7 +226,21 @@ app.get('/project-availability/api/costing/:prodOrderNumber', async (req, res) =
             .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
             .query(findProjectCosting);
             
-        res.json(costingResult.recordset || []);
+        // Retrieve the sales order line 1 unit price (SO Value)
+        const soResult = await pool.request()
+            .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
+            .query(findSalesOrderLine1Price);
+            
+        const soValue = soResult.recordset && soResult.recordset.length > 0
+            ? soResult.recordset[0].so_line_1_unit_price
+            : 0;
+            
+        const itemsWithSO = (costingResult.recordset || []).map(item => ({
+            ...item,
+            so_value: soValue
+        }));
+            
+        res.json(itemsWithSO);
     } catch (err) {
         console.error("Costing API Error: ", err);
         if (err.name === 'RequestError' || err.code === 'EREQUEST') {

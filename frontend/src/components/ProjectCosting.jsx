@@ -93,7 +93,8 @@ export default function ProjectCosting() {
       'Qty on Pick Tickets',
       'Disposition',
       'Supplier ID',
-      'Unit Cost',
+      'Supplier Cost',
+      'Landed Cost',
       'Extended Cost'
     ];
 
@@ -105,7 +106,8 @@ export default function ProjectCosting() {
       item.qty_on_pick_tickets,
       item.disposition || '',
       item.supplier_id || 'N/A',
-      item.cost || 0,
+      item.supplier_cost || 0,
+      item.landed_cost || 0,
       item.extended_cost || 0
     ]);
 
@@ -153,6 +155,8 @@ export default function ProjectCosting() {
 
   // Metrics calculations
   const totalCost = items.reduce((sum, item) => sum + (item.extended_cost || 0), 0);
+  const soValue = items[0]?.so_value || 0;
+  const percentOfSO = soValue > 0 ? ((totalCost / soValue) * 100).toFixed(1) + '%' : 'N/A';
 
   return (
     <div className="w-full">
@@ -213,15 +217,17 @@ export default function ProjectCosting() {
               </div>
             </div>
 
-            {/* Percentage of SO Value Placeholder */}
+            {/* Percentage of SO Value */}
             <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex items-center space-x-4">
               <div className="p-3.5 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400">
                 <CheckSquare className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">% of Total SO Value</span>
-                <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">-</span>
-                <span className="text-[10px] text-slate-400 block font-medium mt-0.5">Query pending</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">% of SO Line 1 Value</span>
+                <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">{percentOfSO}</span>
+                <span className="text-[10px] text-slate-400 block font-medium mt-0.5">
+                  {soValue > 0 ? `SO Value: ${formatCurrency(soValue)}` : 'No Sales Order link'}
+                </span>
               </div>
             </div>
 
@@ -266,7 +272,8 @@ export default function ProjectCosting() {
                     <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">On Pick<br/>Tickets</div></th>
                     <th scope="col" className="px-1 py-2 text-center font-semibold">Disp</th>
                     <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">Supplier<br/>ID</div></th>
-                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Unit<br/>Cost</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Supplier<br/>Cost</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Landed<br/>Cost</div></th>
                     <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Extended<br/>Cost</div></th>
                   </tr>
                 </thead>
@@ -302,8 +309,11 @@ export default function ProjectCosting() {
                       <td className="px-1.5 py-1.5 text-center text-slate-550 font-medium">
                         {item.supplier_id || '-'}
                       </td>
-                      <td className="px-2 py-1.5 text-right font-semibold">
-                        {formatCurrency(item.cost)}
+                      <td className="px-2 py-1.5 text-right font-medium text-slate-500 dark:text-slate-400">
+                        {formatCurrency(item.supplier_cost)}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-semibold text-slate-800 dark:text-slate-200">
+                        {formatCurrency(item.landed_cost)}
                       </td>
                       <td className="px-2 py-1.5 text-right font-bold text-proax-navy dark:text-slate-150">
                         {formatCurrency(item.extended_cost)}

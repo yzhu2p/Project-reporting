@@ -7,23 +7,23 @@ export default function Layout({ children, theme, setTheme }) {
   const location = useLocation();
   
   const pathParts = location.pathname.split('/');
-  const activeReport = pathParts[2] || 'backorders';
-  const currentParam = pathParts[3] || '';
-
+  const activeReport = pathParts[1] || 'backorders';
+  const currentParam = pathParts[2] || '';
+  
   const handleTabClick = (tab) => {
     if (currentParam) {
-      navigate(`/project/${tab}/${currentParam}`);
+      navigate(`/${tab}/${currentParam}`);
     } else {
-      navigate(`/project/${tab}`);
+      navigate(`/${tab}`);
     }
   };
 
   const handleProjectToolsClick = () => {
     if (activeReport !== 'backorders' && activeReport !== 'costing') {
       if (currentParam) {
-        navigate(`/project/backorders/${currentParam}`);
+        navigate(`/backorders/${currentParam}`);
       } else {
-        navigate('/project/backorders');
+        navigate('/backorders');
       }
     }
   };
@@ -65,7 +65,7 @@ export default function Layout({ children, theme, setTheme }) {
             </button>
             
             <button
-              onClick={() => navigate('/project/customer-pos')}
+              onClick={() => navigate('/customer-pos')}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center space-x-2 focus:outline-none ${
                 activeReport === 'customer-pos'
                   ? 'bg-blue-50 dark:bg-blue-950/40 text-proax-primary dark:text-blue-400 shadow-sm'

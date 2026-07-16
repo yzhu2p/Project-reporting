@@ -80,9 +80,9 @@ export default function BackorderReport() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (orderNumber.trim()) {
-      navigate(`/project/backorders/${orderNumber.trim()}`);
+      navigate(`/backorders/${orderNumber.trim()}`);
     } else {
-      navigate('/project/backorders');
+      navigate('/backorders');
     }
   };
 

@@ -73,9 +73,9 @@ export default function ProjectCosting() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (orderNumber.trim()) {
-      navigate(`/project/costing/${orderNumber.trim()}`);
+      navigate(`/costing/${orderNumber.trim()}`);
     } else {
-      navigate('/project/costing');
+      navigate('/costing');
     }
   };
 

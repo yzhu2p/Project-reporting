@@ -25,12 +25,12 @@ export default function App() {
   return (
     <Layout theme={theme} setTheme={setTheme}>
       <Routes>
-        <Route path="/project/backorders" element={<BackorderReport />} />
-        <Route path="/project/backorders/:orderNumberParam" element={<BackorderReport />} />
-        <Route path="/project/costing" element={<ProjectCosting />} />
-        <Route path="/project/costing/:orderNumberParam" element={<ProjectCosting />} />
-        <Route path="/project/customer-pos" element={<CustomerPOs />} />
-        <Route path="*" element={<Navigate to="/project/backorders" replace />} />
+        <Route path="/backorders" element={<BackorderReport />} />
+        <Route path="/backorders/:orderNumberParam" element={<BackorderReport />} />
+        <Route path="/costing" element={<ProjectCosting />} />
+        <Route path="/costing/:orderNumberParam" element={<ProjectCosting />} />
+        <Route path="/customer-pos" element={<CustomerPOs />} />
+        <Route path="*" element={<Navigate to="/backorders" replace />} />
       </Routes>
     </Layout>
   );

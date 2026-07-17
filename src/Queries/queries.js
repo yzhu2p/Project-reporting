@@ -172,188 +172,71 @@ ranked_suppliers AS (
         FROM prod_order_line_component 
         WHERE prod_order_number = @prodOrderNumber
     )
+),
+raw_costing AS (
+    SELECT
+        c.prod_order_number,
+        i.item_id,
+        i.item_desc,
+        c.qty_requested,
+        c.qty_allocated,
+        c.qty_on_pick_tickets,
+        c.disposition,
+        sup.supplier_id,
+        sup.supplier_name,
+        COALESCE(inv_sup.cost, 0) AS raw_supplier_cost,
+        
+        -- Supplier Cost (converted to customer currency, before manufacturer markup)
+        COALESCE(
+            inv_sup.cost
+                * COALESCE(cus_rate.exchange_rate, 1.0)
+                /
+                CASE
+                    WHEN sup.currency_id = @customer_currency_id
+                        THEN COALESCE(cus_rate.exchange_rate, 1.0)
+                    ELSE COALESCE(sup_rate.exchange_rate, 1.0)
+                END,
+            0
+        ) AS supplier_cost
+    FROM prod_order_line_component c
+    JOIN inv_mast i
+        ON c.inv_mast_uid = i.inv_mast_uid
+    LEFT JOIN ranked_suppliers rs
+        ON c.inv_mast_uid = rs.inv_mast_uid
+        AND (
+            (c.supplier_id IS NOT NULL AND c.supplier_id = rs.supplier_id)
+            OR
+            (c.supplier_id IS NULL AND rs.rn = 1)
+        )
+    LEFT JOIN inventory_supplier inv_sup
+        ON c.inv_mast_uid = inv_sup.inv_mast_uid
+        AND inv_sup.supplier_id = rs.supplier_id
+    LEFT JOIN p21_view_supplier sup
+        ON sup.supplier_id = inv_sup.supplier_id
+    LEFT JOIN exchange_rates cus_rate
+        ON cus_rate.to_currency_id = @customer_currency_id
+    LEFT JOIN exchange_rates sup_rate
+        ON sup_rate.to_currency_id = sup.currency_id
+    WHERE c.prod_order_number = @prodOrderNumber 
+        AND c.disposition != 'C'
 )
-
 SELECT
-    c.prod_order_number,
-
-    i.item_id,
-    i.item_desc,
-
-    c.qty_requested,
-    c.qty_allocated,
-    c.qty_on_pick_tickets,
-    c.disposition,
-
-    sup.supplier_id,
-    sup.supplier_name,
-    
-    -- Raw Supplier Cost (in supplier native currency)
-    COALESCE(inv_sup.cost, 0) AS raw_supplier_cost,
-
-    -- Supplier Cost (converted to customer currency, before manufacturer markup)
-    COALESCE(
-        inv_sup.cost
-            * COALESCE(cus_rate.exchange_rate, 1.0)
-            /
-            CASE
-                WHEN sup.currency_id = @customer_currency_id
-                    THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-            END,
-        0
-    ) AS supplier_cost,
-
-    -- Landed cost calculation (with manufacturer markup)
-    COALESCE(
-        CASE
-            WHEN i.default_product_group IN ('ABB', 'ABBMV', 'OMR', 'RIT', 'PHX', 'PHOENIX', 'OMRON', 'RITTAL') THEN
-                inv_sup.cost
-                    * COALESCE(cus_rate.exchange_rate, 1.0)
-                    /
-                    CASE
-                        WHEN sup.currency_id = @customer_currency_id
-                            THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                        ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                    END
-
-            WHEN i.default_product_group = 'SMC' THEN
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.045
-
-            ELSE
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.05
-        END,
-        0
-    ) AS landed_cost,
-
-    COALESCE(
-        CASE
-            WHEN i.default_product_group IN ('ABB', 'ABBMV', 'OMR', 'RIT', 'PHX', 'PHOENIX', 'OMRON', 'RITTAL') THEN
-                inv_sup.cost
-                    * COALESCE(cus_rate.exchange_rate, 1.0)
-                    /
-                    CASE
-                        WHEN sup.currency_id = @customer_currency_id
-                            THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                        ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                    END
-
-            WHEN i.default_product_group = 'SMC' THEN
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.045
-
-            ELSE
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.05
-        END,
-        0
-    ) AS cost,
-
-    -- Extended Cost using Landed Cost
-    c.qty_requested * COALESCE(
-        CASE
-            WHEN i.default_product_group IN ('ABB', 'ABBMV', 'OMR', 'RIT', 'PHX', 'PHOENIX', 'OMRON', 'RITTAL') THEN
-                inv_sup.cost
-                    * COALESCE(cus_rate.exchange_rate, 1.0)
-                    /
-                    CASE
-                        WHEN sup.currency_id = @customer_currency_id
-                            THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                        ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                    END
-
-            WHEN i.default_product_group = 'SMC' THEN
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.045
-
-            ELSE
-                (
-                    inv_sup.cost
-                        * COALESCE(cus_rate.exchange_rate, 1.0)
-                        /
-                        CASE
-                            WHEN sup.currency_id = @customer_currency_id
-                                THEN COALESCE(cus_rate.exchange_rate, 1.0)
-                            ELSE COALESCE(sup_rate.exchange_rate, 1.0)
-                        END
-                ) * 1.05
-        END,
-        0
-    ) AS extended_cost
-
-FROM prod_order_line_component c
-
-JOIN inv_mast i
-    ON c.inv_mast_uid = i.inv_mast_uid
-
--- Get the supplier to use: either the one specified on the component line, or the primary supplier of the item
-LEFT JOIN ranked_suppliers rs
-    ON c.inv_mast_uid = rs.inv_mast_uid
-    AND (
-        (c.supplier_id IS NOT NULL AND c.supplier_id = rs.supplier_id)
-        OR
-        (c.supplier_id IS NULL AND rs.rn = 1)
-    )
-
-LEFT JOIN inventory_supplier inv_sup
-    ON c.inv_mast_uid = inv_sup.inv_mast_uid
-    AND inv_sup.supplier_id = rs.supplier_id
-
-LEFT JOIN p21_view_supplier sup
-    ON sup.supplier_id = inv_sup.supplier_id
-
-LEFT JOIN exchange_rates cus_rate
-    ON cus_rate.to_currency_id = @customer_currency_id
-
-LEFT JOIN exchange_rates sup_rate
-    ON sup_rate.to_currency_id = sup.currency_id
-
-WHERE c.prod_order_number = @prodOrderNumber 
-    AND c.disposition != 'C'
-
-ORDER BY i.item_id;
+    prod_order_number,
+    item_id,
+    item_desc,
+    qty_requested,
+    qty_allocated,
+    qty_on_pick_tickets,
+    disposition,
+    supplier_id,
+    supplier_name,
+    raw_supplier_cost,
+    supplier_cost,
+    supplier_cost AS landed_cost,
+    supplier_cost AS cost,
+    qty_requested * supplier_cost AS extended_cost
+FROM raw_costing
+ORDER BY item_id;
 `;
 
 const findProductionOrderStatus = `

@@ -93,8 +93,8 @@ export default function ProjectCosting() {
       'Qty on Pick Tickets',
       'Disposition',
       'Supplier ID',
-      'Supplier Cost',
-      'Landed Cost',
+      'Supplier Curr Cost',
+      'CAD Cost',
       'Extended Cost'
     ];
 
@@ -201,7 +201,7 @@ export default function ProjectCosting() {
                 <DollarSign className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">Actual Item Cost</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">Total Item Cost</span>
                 <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">{formatCurrency(totalCost)}</span>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default function ProjectCosting() {
                 </button>
               </div>
               <span className="text-xs text-slate-655 dark:text-slate-500 font-medium bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full">
-                All components excluding complete (Disposition C)
+                All components excluding canceled (Disposition C)
               </span>
             </div>
 
@@ -272,8 +272,8 @@ export default function ProjectCosting() {
                     <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">On Pick<br/>Tickets</div></th>
                     <th scope="col" className="px-1 py-2 text-center font-semibold">Disp</th>
                     <th scope="col" className="px-1.5 py-2 text-center font-semibold"><div className="leading-tight text-center">Supplier<br/>ID</div></th>
-                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Supplier<br/>Cost</div></th>
-                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Landed<br/>Cost</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Supplier<br/>Curr Cost</div></th>
+                    <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">CAD<br/>Cost</div></th>
                     <th scope="col" className="px-2 py-2 text-right font-semibold"><div className="leading-tight text-right">Extended<br/>Cost</div></th>
                   </tr>
                 </thead>

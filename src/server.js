@@ -331,6 +331,7 @@ app.get('/project-availability/api/customer-pos', async (req, res) => {
     }
 });
 
+
 // Serve static built frontend files (for docker or production bundle)
 app.use('/project-availability', express.static(path.join(__dirname, '../frontend/dist')));
 

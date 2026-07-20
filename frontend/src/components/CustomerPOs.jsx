@@ -10,7 +10,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  DollarSign
+  DollarSign,
+  Download
 } from 'lucide-react';
 
 export default function CustomerPOs() {
@@ -63,6 +64,159 @@ export default function CustomerPOs() {
     } catch (e) {
       return '-';
     }
+  };
+
+  const exportExcel = () => {
+    // 1. Flatten all order lines across all tracked items
+    const allLines = [];
+    items.forEach(item => {
+      (item.orders || []).forEach(order => {
+        const remaining = Number(order.qty_remaining) || 0;
+        const price = Number(order.unit_price) || 0;
+        allLines.push({
+          partNo: item.partNo,
+          desc: item.desc || '',
+          salesOrderNo: String(order.sales_order_no || ''),
+          customerPoNo: order.customer_po_no || '',
+          customerId: order.customer_id || '',
+          customerName: order.customer_name || '',
+          orderDate: order.order_date,
+          qtyOrdered: Number(order.qty_ordered) || 0,
+          qtyInvoiced: Number(order.qty_invoiced) || 0,
+          qtyCanceled: Number(order.qty_canceled) || 0,
+          qtyRemaining: remaining,
+          unitPrice: price,
+          totalValue: remaining * price
+        });
+      });
+    });
+
+    if (allLines.length === 0) return;
+
+    // 2. Sort lines by Order Date -> Sales Order # -> Part Number
+    allLines.sort((a, b) => {
+      const dateA = new Date(a.orderDate).getTime() || 0;
+      const dateB = new Date(b.orderDate).getTime() || 0;
+      if (dateA !== dateB) return dateA - dateB;
+      if (a.salesOrderNo !== b.salesOrderNo) return a.salesOrderNo.localeCompare(b.salesOrderNo);
+      return a.partNo.localeCompare(b.partNo);
+    });
+
+    // 3. Count occurrences of each Sales Order #
+    const soCounts = {};
+    allLines.forEach(line => {
+      soCounts[line.salesOrderNo] = (soCounts[line.salesOrderNo] || 0) + 1;
+    });
+
+    // 4. Assign pastel highlight colors for multi-line Sales Orders
+    const PASTEL_COLORS = [
+      '#FEF08A', // Yellow
+      '#FED7AA', // Orange
+      '#BBF7D0', // Green
+      '#BFDBFE', // Blue
+      '#E9D5FF', // Purple
+      '#FBCFE8', // Pink
+      '#FDE68A', // Amber
+      '#A7F3D0', // Emerald
+      '#C7D2FE', // Indigo
+      '#F5D0FE'  // Fuchsia
+    ];
+
+    const soColors = {};
+    let colorIndex = 0;
+    allLines.forEach(line => {
+      if (soCounts[line.salesOrderNo] > 1 && !soColors[line.salesOrderNo]) {
+        soColors[line.salesOrderNo] = PASTEL_COLORS[colorIndex % PASTEL_COLORS.length];
+        colorIndex++;
+      }
+    });
+
+    // 5. Build HTML table representation for Excel
+    const headers = [
+      'Part Number',
+      'Description',
+      'Sales Order #',
+      'Customer Name',
+      'Order Date',
+      'Qty Ordered',
+      'Qty Invoiced',
+      'Qty Canceled',
+      'Qty Remaining',
+      'Unit Price',
+      'Total Value'
+    ];
+
+    let tableRows = '';
+    allLines.forEach(line => {
+      const bgColor = soColors[line.salesOrderNo] || '';
+      const soCellStyle = bgColor 
+        ? `style="background-color: ${bgColor}; font-weight: bold; text-align: center;"`
+        : `style="text-align: center;"`;
+
+      tableRows += `
+        <tr>
+          <td>${line.partNo}</td>
+          <td>${line.desc}</td>
+          <td ${soCellStyle}>${line.salesOrderNo}</td>
+          <td>${line.customerName}</td>
+          <td style="text-align: center;">${formatDate(line.orderDate)}</td>
+          <td style="text-align: right;">${line.qtyOrdered}</td>
+          <td style="text-align: right;">${line.qtyInvoiced}</td>
+          <td style="text-align: right;">${line.qtyCanceled}</td>
+          <td style="text-align: right;">${line.qtyRemaining}</td>
+          <td style="text-align: right;">$${line.unitPrice.toFixed(2)}</td>
+          <td style="text-align: right;">$${line.totalValue.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Customer POs</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          th { background-color: #E2E8F0; font-weight: bold; padding: 8px; border: 1px solid #CBD5E1; text-align: left; }
+          td { padding: 6px; border: 1px solid #E2E8F0; vertical-align: middle; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <thead>
+            <tr>
+              ${headers.map(h => `<th>${h}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Open_Customer_POs_${new Date().toISOString().slice(0, 10)}.xls`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Metrics
@@ -139,14 +293,24 @@ export default function CustomerPOs() {
               Tracked Items List
             </h2>
           </div>
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="inline-flex items-center px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-sm transition-colors focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={exportExcel}
+              disabled={loading || items.length === 0}
+              className="inline-flex items-center px-2.5 py-1 rounded bg-proax-primary hover:bg-proax-navy text-white text-xs font-semibold shadow-sm transition-colors focus:outline-none disabled:opacity-50"
+              title="Download Open Customer POs as Excel"
+            >
+              <Download className="w-3.5 h-3.5 mr-1" /> Export Excel
+            </button>
+            <button
+              onClick={fetchData}
+              disabled={loading}
+              className="inline-flex items-center px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-semibold shadow-sm transition-colors focus:outline-none hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">

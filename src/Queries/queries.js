@@ -281,6 +281,7 @@ SELECT
     oeh.customer_id,
     c.customer_name,
     oeh.order_date,
+    oel.required_date,
     oel.qty_ordered,
     oel.qty_invoiced,
     oel.qty_canceled,

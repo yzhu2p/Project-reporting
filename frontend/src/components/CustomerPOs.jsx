@@ -81,6 +81,7 @@ export default function CustomerPOs() {
           customerId: order.customer_id || '',
           customerName: order.customer_name || '',
           orderDate: order.order_date,
+          requiredDate: order.required_date,
           qtyOrdered: Number(order.qty_ordered) || 0,
           qtyInvoiced: Number(order.qty_invoiced) || 0,
           qtyCanceled: Number(order.qty_canceled) || 0,
@@ -138,6 +139,7 @@ export default function CustomerPOs() {
       'Sales Order #',
       'Customer Name',
       'Order Date',
+      'Required Date',
       'Qty Ordered',
       'Qty Invoiced',
       'Qty Canceled',
@@ -160,6 +162,7 @@ export default function CustomerPOs() {
           <td ${soCellStyle}>${line.salesOrderNo}</td>
           <td>${line.customerName}</td>
           <td style="text-align: center;">${formatDate(line.orderDate)}</td>
+          <td style="text-align: center;">${formatDate(line.requiredDate)}</td>
           <td style="text-align: right;">${line.qtyOrdered}</td>
           <td style="text-align: right;">${line.qtyInvoiced}</td>
           <td style="text-align: right;">${line.qtyCanceled}</td>
@@ -395,6 +398,7 @@ export default function CustomerPOs() {
                                       <th className="px-3 py-2 font-medium">Customer PO #</th>
                                       <th className="px-3 py-2 font-medium">Customer Name (ID)</th>
                                       <th className="px-3 py-2 font-medium">Order Date</th>
+                                      <th className="px-3 py-2 font-medium">Req Date</th>
                                       <th className="px-3 py-2 text-right font-medium">Qty Ord</th>
                                       <th className="px-3 py-2 text-right font-medium">Qty Inv</th>
                                       <th className="px-3 py-2 text-right font-medium">Qty Can</th>
@@ -416,6 +420,9 @@ export default function CustomerPOs() {
                                         </td>
                                         <td className="px-3 py-2">
                                           {formatDate(ord.order_date)}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          {formatDate(ord.required_date)}
                                         </td>
                                         <td className="px-3 py-2 text-right">{ord.qty_ordered}</td>
                                         <td className="px-3 py-2 text-right text-slate-550">{ord.qty_invoiced}</td>

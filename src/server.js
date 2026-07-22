@@ -277,6 +277,7 @@ app.get('/project-availability/api/customer-pos', async (req, res) => {
                 customer_id: row.customer_id,
                 customer_name: row.customer_name || 'N/A',
                 order_date: row.order_date,
+                required_date: row.required_date,
                 qty_ordered: row.qty_ordered,
                 qty_invoiced: row.qty_invoiced,
                 qty_canceled: row.qty_canceled,
@@ -330,6 +331,7 @@ app.get('/project-availability/api/customer-pos', async (req, res) => {
         }
     }
 });
+
 
 
 // Serve static built frontend files (for docker or production bundle)

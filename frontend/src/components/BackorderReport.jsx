@@ -11,7 +11,8 @@ import {
   RefreshCw,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  CheckCircle2
 } from 'lucide-react';
 
 export default function BackorderReport() {
@@ -391,6 +392,22 @@ export default function BackorderReport() {
         <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-400 p-4 rounded-lg flex items-center mb-8 max-w-xl mx-auto">
           <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
           <p className="font-medium text-sm">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && searchedOrderNumber && components.length === 0 && (
+        <div className="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-800 dark:text-emerald-300 p-6 rounded-2xl flex items-center space-x-4 max-w-2xl mx-auto shadow-sm dark:shadow-md animate-fade-in mb-8">
+          <div className="p-3 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-emerald-950 dark:text-emerald-200">
+              No Component Backorders
+            </h3>
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5 leading-relaxed">
+              Production Order <span className="font-mono font-bold">#{searchedOrderNumber}</span> is active and has no outstanding component backorders or missing inventory allocations.
+            </p>
+          </div>
         </div>
       )}
 

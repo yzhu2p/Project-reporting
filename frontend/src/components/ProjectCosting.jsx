@@ -223,7 +223,7 @@ export default function ProjectCosting() {
                 <CheckSquare className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">% of SO Line 1 Value</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider block">% of total order value</span>
                 <span className="text-2xl font-bold text-proax-navy dark:text-slate-100">{percentOfSO}</span>
                 <span className="text-[10px] text-slate-400 block font-medium mt-0.5">
                   {soValue > 0 ? `SO Value: ${formatCurrency(soValue)}` : 'No Sales Order link'}

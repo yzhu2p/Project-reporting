@@ -245,20 +245,26 @@ FROM prod_order_hdr
 WHERE prod_order_number = @prodOrderNumber;
 `;
 
-const findSalesOrderLine1Price = `
-SELECT TOP 1
-    oe1.unit_price AS so_line_1_unit_price
-FROM prod_order_line pol
-JOIN prod_order_line_link poll
-    ON pol.prod_order_number = poll.prod_order_number
-    AND pol.line_number = poll.prod_order_line_number
-    AND poll.trans_type = 'O'
-JOIN oe_line oel
-    ON poll.transaction_uid = oel.oe_line_uid
-JOIN oe_line oe1
-    ON oe1.order_no = oel.order_no
-   AND oe1.line_no = 1
-WHERE pol.prod_order_number = @prodOrderNumber;
+const findSalesOrderTotalValue = `
+SELECT 
+    COALESCE(SUM(so.extended_price), 0) AS total_order_value
+FROM (
+    SELECT DISTINCT oel.order_no
+    FROM prod_order_hdr poh
+    JOIN prod_order_line pol
+        ON poh.prod_order_number = pol.prod_order_number
+    JOIN prod_order_line_link poll
+        ON poll.prod_order_number = pol.prod_order_number
+       AND poll.prod_order_line_number = pol.line_number
+       AND poll.trans_type = 'O'
+    JOIN oe_line oel
+        ON oel.oe_line_uid = poll.transaction_uid
+    WHERE poh.prod_order_number = @prodOrderNumber
+) po
+JOIN oe_line so
+    ON so.order_no = po.order_no
+WHERE so.cancel_flag = 'N'
+  AND ISNULL(so.disposition, '') <> 'C';
 `;
 
 const findCustomerPOs = `
@@ -335,7 +341,8 @@ module.exports = {
   findPOsBulk,
   findProjectCosting,
   findProductionOrderStatus,
-  findSalesOrderLine1Price,
+  findSalesOrderTotalValue,
+  findSalesOrderLine1Price: findSalesOrderTotalValue,
   findCustomerPOs,
   findCustomerPOsYTD
 };

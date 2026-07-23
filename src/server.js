@@ -43,7 +43,7 @@ const {
   findPOsBulk,
   findProjectCosting,
   findProductionOrderStatus,
-  findSalesOrderLine1Price,
+  findSalesOrderTotalValue,
   findCustomerPOs,
   findCustomerPOsYTD
 } = require('./Queries/queries');
@@ -228,13 +228,13 @@ app.get('/project-availability/api/costing/:prodOrderNumber', async (req, res) =
             .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
             .query(findProjectCosting);
             
-        // Retrieve the sales order line 1 unit price (SO Value)
+        // Retrieve the total sales order value (sum of extended prices of all active order lines)
         const soResult = await pool.request()
             .input('prodOrderNumber', sql.VarChar, prodOrderNumber)
-            .query(findSalesOrderLine1Price);
+            .query(findSalesOrderTotalValue);
             
         const soValue = soResult.recordset && soResult.recordset.length > 0
-            ? soResult.recordset[0].so_line_1_unit_price
+            ? (soResult.recordset[0].total_order_value || 0)
             : 0;
             
         const itemsWithSO = (costingResult.recordset || []).map(item => ({
